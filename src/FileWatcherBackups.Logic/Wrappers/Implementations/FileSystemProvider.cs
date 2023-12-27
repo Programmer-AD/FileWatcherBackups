@@ -1,5 +1,4 @@
-﻿
-namespace FileWatcherBackups.Logic.Wrappers.Implementations;
+﻿namespace FileWatcherBackups.Logic.Wrappers.Implementations;
 
 internal class FileSystemProvider : IFileSystemProvider
 {

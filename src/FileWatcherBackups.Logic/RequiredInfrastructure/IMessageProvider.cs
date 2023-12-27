@@ -1,5 +1,4 @@
-﻿
-namespace FileWatcherBackups.Logic.RequiredInfrastructure;
+﻿namespace FileWatcherBackups.Logic.RequiredInfrastructure;
 
 public interface IMessageProvider
 {
