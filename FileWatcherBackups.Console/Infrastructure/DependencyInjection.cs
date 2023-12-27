@@ -11,5 +11,6 @@ internal static class DependencyInjection
         services.AddSingleton<IConfigProvider, ConfigProvider>();
         services.AddSingleton<ITextInput, TextInput>();
         services.AddSingleton<ITextOutput, TextOutput>();
+        services.AddSingleton<IMessageProvider, MessageProvider>();
     }
 }

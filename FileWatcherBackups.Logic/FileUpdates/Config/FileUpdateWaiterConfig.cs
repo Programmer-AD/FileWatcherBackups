@@ -2,7 +2,7 @@
 
 public record class FileUpdateWaiterConfig(
     string WatchPath,
-    int WaitEventGroupingMilliseconds,
+    int FileWatchEventGroupingMilliseconds,
     IEnumerable<string> ExcludeFilePatterns)
 {
 }

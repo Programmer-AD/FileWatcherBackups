@@ -1,9 +1,9 @@
 ﻿namespace FileWatcherBackups.Console.Infrastructure.Models;
 
 public record class GeneralAppConfig(
-    string WatchFolderPath,
-    string BackupsFolderPath,
-    int WaitEventGroupingMilliseconds,
+    string WatchDirectoryPath,
+    string BackupsDirectoryPath,
+    int FileWatchEventGroupingMilliseconds,
     int MaximumBackupCount,
     IEnumerable<string> ExcludeFilePatterns)
 {

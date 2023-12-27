@@ -1,8 +1,8 @@
 {
-  "WatchFolderPath": "",
-  "BackupsFolderPath": "",
+  "WatchDirectoryPath": "",
+  "BackupsDirectoryPath": "",
   "MaximumBackupCount": 30,
-  "WaitEventGroupingMilliseconds": 500,
+  "FileWatchEventGroupingMilliseconds": 500,
   "ExcludeFilePatterns": [
     "*.tmp"
   ]

@@ -10,7 +10,8 @@ internal class AppLogic(
     IBackupProvider backupProvider,
     ICommandHandler commandHandler,
     ITextInput textInput,
-    ITextOutput textOutput)
+    ITextOutput textOutput,
+    IMessageProvider messageProvider)
     : IAppLogic
 {
     public async Task RunAppLoopAsync()
@@ -18,7 +19,7 @@ internal class AppLogic(
         var fileBackupLoopTask = RunInfiniteLoop(MakeFileBackups);
         var commandHandlingLoopTask = RunInfiniteLoop(HandleInputCommands);
 
-        await textOutput.WriteLineAsync("Application started");
+        await textOutput.WriteLineAsync(messageProvider.GetApplicationStarted());
 
         await Task.WhenAll(fileBackupLoopTask, commandHandlingLoopTask);
     }
@@ -27,9 +28,9 @@ internal class AppLogic(
     {
         await fileUpdateWaiter.WaitForUpdateAsync();
 
-        var backupInfo = backupProvider.CreateBackup();
+        Guid backupId = backupProvider.CreateBackup();
 
-        await textOutput.WriteLineAsync($"Create backup: {backupInfo}");
+        await textOutput.WriteLineAsync(messageProvider.GetBackupCreated(backupId));
     }
 
     private async Task HandleInputCommands()
@@ -61,7 +62,7 @@ internal class AppLogic(
                 }
                 catch (Exception ex)
                 {
-                    await textOutput.WriteLineAsync($"ERROR:{Environment.NewLine}{ex}");
+                    await textOutput.WriteLineAsync(messageProvider.GetError(ex));
                 }
             }
         });

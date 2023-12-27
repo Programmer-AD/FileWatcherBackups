@@ -1,8 +1,8 @@
 ﻿namespace FileWatcherBackups.Logic.FileBackups.Config;
 
 public record class BackupProviderConfig(
-    string PrimaryFolderPath,
-    string BackupsFolderPath,
+    string PrimaryDirectoryPath,
+    string BackupsDirectoryPath,
     int MaximumBackupCount,
     IEnumerable<string> ExcludeFilePatterns)
 {

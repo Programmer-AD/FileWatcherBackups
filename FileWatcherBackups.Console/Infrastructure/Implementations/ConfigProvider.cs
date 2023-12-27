@@ -15,8 +15,8 @@ internal class ConfigProvider : IConfigProvider
         var generalConfig = GetGeneralAppConfig();
 
         var result = new BackupProviderConfig(
-            generalConfig.WatchFolderPath,
-            generalConfig.BackupsFolderPath,
+            generalConfig.WatchDirectoryPath,
+            generalConfig.BackupsDirectoryPath,
             generalConfig.MaximumBackupCount,
             generalConfig.ExcludeFilePatterns);
 
@@ -28,8 +28,8 @@ internal class ConfigProvider : IConfigProvider
         var generalConfig = GetGeneralAppConfig();
 
         var result = new FileUpdateWaiterConfig(
-            generalConfig.WatchFolderPath,
-            generalConfig.WaitEventGroupingMilliseconds,
+            generalConfig.WatchDirectoryPath,
+            generalConfig.FileWatchEventGroupingMilliseconds,
             generalConfig.ExcludeFilePatterns);
 
         return result;

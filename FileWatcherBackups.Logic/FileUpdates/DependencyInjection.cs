@@ -13,7 +13,6 @@ internal static class DependencyInjection
             var configProvider = services.GetRequiredService<IConfigProvider>();
 
             var config = configProvider.GetFileUpdateWaiterConfig();
-
             return config;
         });
 

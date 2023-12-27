@@ -26,7 +26,7 @@ internal class FileUpdateWaiter(
         {
             taskCompletionSource = new TaskCompletionSource();
 
-            // If file system watcher was not yet disposed on cleanup
+            // If previous file system watcher was not yet disposed on cleanup
             fileSystemWatcher?.Dispose();
 
             fileSystemWatcher = new FileSystemWatcher()
@@ -56,19 +56,24 @@ internal class FileUpdateWaiter(
         if (taskCompletionSource != null
             && IsWaitedEvent(eventArgs))
         {
-            waitFinishCancellation?.Cancel();
-
-            waitFinishCancellation = new CancellationTokenSource();
-
-            Task.Delay(config.WaitEventGroupingMilliseconds, waitFinishCancellation.Token)
-                .ContinueWith(task =>
-                {
-                    if (!task.IsCanceled)
-                    {
-                        taskCompletionSource?.SetResult();
-                    }
-                });
+            RescheduleWaitCompletion();
         }
+    }
+
+    private void RescheduleWaitCompletion()
+    {
+        waitFinishCancellation?.Cancel();
+
+        waitFinishCancellation = new CancellationTokenSource();
+
+        Task.Delay(config.FileWatchEventGroupingMilliseconds, waitFinishCancellation.Token)
+            .ContinueWith(task =>
+            {
+                if (!task.IsCanceled)
+                {
+                    taskCompletionSource?.SetResult();
+                }
+            });
     }
 
     private bool IsWaitedEvent(FileSystemEventArgs eventArgs)

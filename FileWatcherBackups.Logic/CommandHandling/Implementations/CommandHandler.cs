@@ -1,9 +1,11 @@
 ﻿using FileWatcherBackups.Logic.FileBackups;
+using FileWatcherBackups.Logic.RequiredInfrastructure;
 
 namespace FileWatcherBackups.Logic.CommandHandling.Implementations;
 
 internal class CommandHandler(
-    IBackupProvider backupProvider)
+    IBackupProvider backupProvider,
+    IMessageProvider messageProvider)
     : ICommandHandler
 {
     public string Handle(string command)
@@ -16,30 +18,20 @@ internal class CommandHandler(
             "create" => HandleBackupCreate(),
             "list" => HandleBackupList(),
             "restore" => HandleBackupRestore(commandParts[1]),
-            _ => "Unknown command"
+            _ => messageProvider.GetUnknownCommand(),
         };
 
         return output;
     }
 
-    private static string HandleHelp()
-    {
-        const string commandNameDelimiter = " - ";
-        const string helpDescription = $"help{commandNameDelimiter}shows this message\r\n";
-        const string createDescription = $"create{commandNameDelimiter}manually creates backup\r\n";
-        const string listDescription = $"list{commandNameDelimiter}shows list of backups that you have\r\n";
-        const string restoreDescription = $"restore {{id prefix}}{commandNameDelimiter}restores specified backup\r\n";
-
-        const string result = $"{helpDescription}{createDescription}{listDescription}{restoreDescription}";
-
-        return result;
-    }
+    private string HandleHelp()
+        => messageProvider.GetHelp();
 
     private string HandleBackupCreate()
     {
         Guid backupId = backupProvider.CreateBackup();
 
-        return $"Created backup with id {backupId:N}";
+        return messageProvider.GetBackupCreated(backupId);
     }
 
     private string HandleBackupList()
@@ -64,10 +56,10 @@ internal class CommandHandler(
 
         if (backup == null)
         {
-            return "Backup such id prefix was not found";
+            return messageProvider.GetBackupNotFoundByIdPrefix();
         }
 
         backupProvider.Restore(backup);
-        return "Backup restored successfully";
+        return messageProvider.GetBackupRestoredSuccessfully();
     }
 }

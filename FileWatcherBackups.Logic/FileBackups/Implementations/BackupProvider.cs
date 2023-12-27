@@ -1,16 +1,18 @@
 ﻿using FileWatcherBackups.Logic.FileBackups.Config;
 using FileWatcherBackups.Logic.FileBackups.Models;
+using FileWatcherBackups.Logic.FileBackups.Utility;
 using FileWatcherBackups.Logic.Utility;
+using FileWatcherBackups.Logic.Wrappers;
 
 namespace FileWatcherBackups.Logic.FileBackups.Implementations;
 
 internal class BackupProvider(
-    BackupProviderConfig config)
+    BackupProviderConfig config,
+    IGuidFactory guidFactory,
+    IDateTimeProvider dateTimeProvider,
+    IFileSystemProvider fileSystemProvider)
     : IBackupProvider
 {
-    private const string BackupNameSeparator = "__";
-    private const string DoubleDotsReplacor = "_d";
-
     private readonly object lockObjectForCreate = new();
     private readonly object lockObjectForRemove = new();
 
@@ -18,11 +20,11 @@ internal class BackupProvider(
     {
         lock (lockObjectForCreate)
         {
-            var backupId = Guid.NewGuid();
+            var backupId = guidFactory.CreateGuid();
 
-            string destinationFolderPath = CreateDestinationFolder(backupId);
+            string destinationDirectoryPath = CreateDestinationDirectory(backupId);
 
-            PerformPartialCopy(config.PrimaryFolderPath, destinationFolderPath);
+            PerformPartialCopy(config.PrimaryDirectoryPath, destinationDirectoryPath);
 
             lock (lockObjectForRemove)
             {
@@ -35,29 +37,22 @@ internal class BackupProvider(
 
     public IEnumerable<BackupInfo> GetBackups()
     {
-        if (!Directory.Exists(config.BackupsFolderPath))
+        if (!Directory.Exists(config.BackupsDirectoryPath))
         {
             yield break;
         }
 
         lock (lockObjectForRemove)
         {
-            var directoryPaths = Directory.EnumerateDirectories(config.BackupsFolderPath);
+            var directoryPaths = Directory.EnumerateDirectories(config.BackupsDirectoryPath);
 
             foreach (string directoryPath in directoryPaths)
             {
-                string? directoryName = Path.GetFileName(directoryPath)?
-                    .Replace(DoubleDotsReplacor, ":");
+                string? directoryName = Path.GetFileName(directoryPath);
 
-                if (!string.IsNullOrEmpty(directoryName))
+                if (BackupDirectoryNameProvider.TryParseDirectoryName(directoryName, out var backupDirectoryNameInfo))
                 {
-                    var nameParts = directoryName.Split(BackupNameSeparator);
-
-                    if (Guid.TryParse(nameParts[0], out var backupId)
-                        && DateTime.TryParse(nameParts[1], out var date))
-                    {
-                        yield return new BackupInfo(backupId, date, directoryPath);
-                    }
+                    yield return new BackupInfo(backupDirectoryNameInfo.BackupId, backupDirectoryNameInfo.CreationDate, directoryPath);
                 }
             }
         }
@@ -67,64 +62,70 @@ internal class BackupProvider(
     {
         lock (lockObjectForRemove)
         {
-            PerformPartialCopy(backupInfo.FolderPath, config.PrimaryFolderPath);
+            PerformPartialCopy(backupInfo.DirectoryPath, config.PrimaryDirectoryPath);
         }
     }
 
-    private string CreateDestinationFolder(Guid backupId)
+    private string CreateDestinationDirectory(Guid backupId)
     {
-        DateTime creationTime = DateTime.Now;
-        string folderName = $"{backupId:N}{BackupNameSeparator}{creationTime:O}".Replace(":", DoubleDotsReplacor);
-        string destinationFolderPath = Path.Combine(config.BackupsFolderPath, folderName);
+        DateTime creationDate = dateTimeProvider.GetNow();
+        string directoryName = BackupDirectoryNameProvider.GenerateDirectoryName(new(backupId, creationDate));
+        string destinationDirectoryPath = Path.Combine(config.BackupsDirectoryPath, directoryName);
 
-        Directory.CreateDirectory(destinationFolderPath);
+        fileSystemProvider.CreateDirectory(destinationDirectoryPath);
 
-        return destinationFolderPath;
+        return destinationDirectoryPath;
     }
 
     private void PerformPartialCopy(
-        string sourceFolderPath,
-        string destinationFolderPath,
-        string? rootFolderPath = null)
+        string sourceParentDirectoryPath,
+        string destinationParentDirectoryPath,
+        string? sourceRootDirectoryPath = null)
     {
-        if (string.IsNullOrEmpty(rootFolderPath))
+        if (string.IsNullOrEmpty(sourceRootDirectoryPath))
         {
-            rootFolderPath = sourceFolderPath;
+            sourceRootDirectoryPath = sourceParentDirectoryPath;
         }
 
-        Directory.CreateDirectory(destinationFolderPath);
+        fileSystemProvider.CreateDirectory(destinationParentDirectoryPath);
 
-        var filePaths = Directory.EnumerateFiles(sourceFolderPath);
+        PerformCopyInner(
+            fileSystemProvider.EnumerateFilesInDirectory(sourceParentDirectoryPath),
+            sourceRootDirectoryPath,
+            destinationParentDirectoryPath,
+            performCopyAction: (sourceFilePath, destinationFilePath)
+                => fileSystemProvider.CopyFile(sourceFilePath, destinationFilePath, overwrite: true));
 
-        foreach (string sourceFilePath in filePaths)
+        PerformCopyInner(
+            fileSystemProvider.EnumerateSubdirectoriesInDirectory(sourceParentDirectoryPath),
+            sourceRootDirectoryPath,
+            destinationParentDirectoryPath,
+            performCopyAction: (sourceDirectoryPath, destinationDirectoryPath)
+                => PerformPartialCopy(sourceDirectoryPath, destinationDirectoryPath, sourceRootDirectoryPath));
+    }
+
+    private void PerformCopyInner(
+        IEnumerable<string> sourcePaths,
+        string sourceRootDirectoryPath,
+        string destinationParentDirectoryPath,
+        Action<string, string> performCopyAction)
+    {
+        foreach (string sourcePath in sourcePaths)
         {
-            if (NeedToCopy(rootFolderPath, sourceFilePath))
+            string sourceRelativePath = Path.GetRelativePath(sourceRootDirectoryPath, sourcePath);
+
+            if (NeedToCopy(sourceRelativePath))
             {
-                string fileName = Path.GetFileName(sourceFilePath);
-                string destinationFilePath = Path.Combine(destinationFolderPath, fileName);
+                string fileEntryName = Path.GetFileName(sourcePath);
+                string destinationPath = Path.Combine(destinationParentDirectoryPath, fileEntryName);
 
-                File.Copy(sourceFilePath, destinationFilePath, true);
-            }
-        }
-
-        var directoryPaths = Directory.EnumerateDirectories(sourceFolderPath);
-
-        foreach (string sourceSubdirectoryPath in directoryPaths)
-        {
-            if (NeedToCopy(rootFolderPath, sourceSubdirectoryPath))
-            {
-                string directoryName = Path.GetFileName(sourceSubdirectoryPath);
-                string destinationSubFolderPath = Path.Combine(destinationFolderPath, directoryName);
-
-                PerformPartialCopy(rootFolderPath, sourceSubdirectoryPath, destinationSubFolderPath);
+                performCopyAction(sourcePath, destinationPath);
             }
         }
     }
 
-    private bool NeedToCopy(string rootFolderPath, string filePath)
+    private bool NeedToCopy(string relativePath)
     {
-        string relativePath = Path.GetRelativePath(rootFolderPath, filePath);
-
         bool result = !PathPatternMatcher.CompliesToOneOfPatterns(relativePath, config.ExcludeFilePatterns);
         return result;
     }
@@ -141,8 +142,8 @@ internal class BackupProvider(
         }
     }
 
-    private static void RemoveBackup(BackupInfo backupInfo)
+    private void RemoveBackup(BackupInfo backupInfo)
     {
-        Directory.Delete(backupInfo.FolderPath, true);
+        fileSystemProvider.DeleteDirectory(backupInfo.DirectoryPath, recurse: true);
     }
 }
