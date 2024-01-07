@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <ProjectReference Include="..\FileWatcherBackups.CommandHandling.Surface\FileWatcherBackups.CommandHandling.Surface.csproj" />
+        <ProjectReference Include="..\..\Shared\FileWatcherBackups.Shared.Surface\FileWatcherBackups.Shared.Surface.csproj" />
+    </ItemGroup>
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+</Project>

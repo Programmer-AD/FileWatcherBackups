@@ -1,5 +1,8 @@
-﻿using FileWatcherBackups.Console.Infrastructure;
+﻿using FileWatcherBackups.CommandHandling;
+using FileWatcherBackups.Console.Infrastructure;
+using FileWatcherBackups.Console.Primary;
 using FileWatcherBackups.Logic;
+using FileWatcherBackups.Shared;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FileWatcherBackups.Console;
@@ -10,16 +13,19 @@ internal static class Program
     {
         try
         {
+            await System.Console.Out.WriteLineAsync("Application starting...");
+
             using var serviceProvider = GetServiceProvider();
 
-            var appLogic = serviceProvider.GetRequiredService<IAppLogic>();
+            var appLoop = serviceProvider.GetRequiredService<IAppLoop>();
 
-            await appLogic.RunAppLoopAsync();
+            await appLoop.RunAsync();
+
         }
-        catch (Exception ex)
+        catch (Exception exception)
         {
-            System.Console.WriteLine($"Critical exception:{Environment.NewLine}{ex}");
-            System.Console.ReadLine();
+            await System.Console.Error.WriteLineAsync($"Critical exception:{Environment.NewLine}{exception}");
+            await System.Console.In.ReadLineAsync();
         }
     }
 
@@ -27,8 +33,12 @@ internal static class Program
     {
         var services = new ServiceCollection();
 
+        services.AddShared();
         services.AddLogic();
+        services.AddCommandHandling();
+
         services.AddInfrastructure();
+        services.AddPrimaryLoop();
 
         var provider = services.BuildServiceProvider();
         return provider;
